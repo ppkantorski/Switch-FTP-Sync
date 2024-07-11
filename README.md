@@ -49,9 +49,5 @@ dt_format = %Y-%m-%d_%H-%M-%S
 ## Usage
 
 1. Clone or download the repository.
-2. Install required packages:
-    - Ensure you have Python 3 installed.
-    - Install necessary packages using pip if not already installed:
-      ```pip install configparser```
-3. Run the script:
+2. Run the build script to geenerate the compiled application (and install necessary packages):
     - `python3 make.py`
