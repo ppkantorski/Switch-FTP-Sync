@@ -329,14 +329,17 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         self.auto_start_action = self.menu.addAction("    Auto-Start")
         self.menu.addSeparator()
         self.config_action = self.menu.addAction("Configure...")
+        self.menu.addSeparator()
         self.about_action = self.menu.addAction("About")
         self.menu.addSeparator()
+        self.restart_action = self.menu.addAction("Restart")  # Add Restart action
         self.exit_action = self.menu.addAction("Quit")
 
         self.start_action.triggered.connect(self.toggle_capture)
         self.auto_start_action.triggered.connect(self.toggle_auto_start)
         self.config_action.triggered.connect(self.configure_config)
         self.about_action.triggered.connect(self.show_about_dialog)
+        self.restart_action.triggered.connect(self.restart_app)  # Connect Restart action to method
         self.exit_action.triggered.connect(self.exit_app)
 
         self.setContextMenu(self.menu)
@@ -396,6 +399,10 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         dialog = AboutDialog()
         dialog.exec_()
         dialog.show()
+
+    def restart_app(self):
+        QtWidgets.QApplication.quit()
+        QtCore.QProcess.startDetached(sys.executable, sys.argv)
 
     def exit_app(self):
         global running
