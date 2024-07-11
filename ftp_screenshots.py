@@ -307,7 +307,7 @@ class AboutDialog(QtWidgets.QDialog):
         self.layout.addWidget(author_label)
 
         github_button = QtWidgets.QPushButton("View on GitHub")
-        github_button.clicked.connect(lambda: os.system("open https://github.com/yourrepo"))
+        github_button.clicked.connect(lambda: os.system("open https://github.com/ppkantorski/switch-ftp-screenshots"))
         self.layout.addWidget(github_button)
 
         ok_button = QtWidgets.QPushButton("OK")
