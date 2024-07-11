@@ -10,6 +10,8 @@ a = Analysis(
     datas=[
         ('config.ini', '.'),
         ('icon.png', '.'),
+        ('dark_taskbar.png', '.'),
+        ('light_taskbar.png', '.')
     ],
     hiddenimports=[],
     hookspath=[],
@@ -49,13 +51,13 @@ coll = COLLECT(
 
 app = BUNDLE(
     coll,
-    name='ftp_screenshots.app',
+    name='FTP Screenshots.app',
     icon='icon.icns',  # Path to your icon file
-    bundle_identifier='com.example.ftp_screenshots',
+    bundle_identifier='com.ppkantorski.ftp_screenshots',
     info_plist={
         'CFBundleName': 'ftp_screenshots',
-        'CFBundleDisplayName': 'ftp_screenshots',
-        'CFBundleIdentifier': 'com.example.ftp_screenshots',
+        'CFBundleDisplayName': 'FTP Screenshots',
+        'CFBundleIdentifier': 'com.ppkantorski.ftp_screenshots',
         'CFBundleVersion': '1.0',
         'CFBundleShortVersionString': '1.0',
         'LSUIElement': True,
