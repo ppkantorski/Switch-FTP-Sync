@@ -1,8 +1,8 @@
-# Switch FTP Screenshots Logger
+# Switch FTP Screenshots
 
 ## Overview
 
-**Switch FTP Screenshots Logger** is a Python script that monitors an FTP server for new Nintendo Switch screenshots saved and downloads them to a local directory. The script is designed to work across Windows, macOS, and Linux.
+**Switch FTP Screenshots** is a Python script that monitors an FTP server for new Nintendo Switch screenshots saved and downloads them to a local directory. The script is designed to work across Windows, macOS, and Linux.
 
 ## Features
 
