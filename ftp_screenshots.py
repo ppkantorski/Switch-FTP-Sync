@@ -307,7 +307,7 @@ class AboutDialog(QtWidgets.QDialog):
         self.layout.addWidget(author_label)
 
         github_button = QtWidgets.QPushButton("View on GitHub")
-        github_button.clicked.connect(lambda: os.system("open https://github.com/ppkantorski/switch-ftp-screenshots"))
+        github_button.clicked.connect(lambda: os.system("open https://github.com/ppkantorski/Switch-FTP-Screenshots"))
         self.layout.addWidget(github_button)
 
         ok_button = QtWidgets.QPushButton("OK")
@@ -325,12 +325,12 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         self.parent = parent
         self.menu = QtWidgets.QMenu(parent)
 
-        self.start_action = self.menu.addAction("\u25B6 Start Screenshots Capture")
+        self.start_action = self.menu.addAction("\u25B6 Start Data Sync")
         self.auto_start_action = self.menu.addAction("    Auto-Start")
         self.menu.addSeparator()
         self.config_action = self.menu.addAction("Configure...")
         self.menu.addSeparator()
-        self.about_action = self.menu.addAction("About")
+        self.about_action = self.menu.addAction("About Switch FTP Screenshots")
         self.menu.addSeparator()
         self.restart_action = self.menu.addAction("Restart")  # Add Restart action
         self.exit_action = self.menu.addAction("Quit")
@@ -361,7 +361,7 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
             running = True
             stop_event.clear()
             threading.Thread(target=screenshots, daemon=True).start()
-            self.start_action.setText("\u25A0 Stop Screenshots Capture")
+            self.start_action.setText("\u25A0 Stop Data Sync")
         else:
             log_message("FTP Screenshots Capture is already running")
 
@@ -370,7 +370,7 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         if running:
             running = False
             stop_event.set()
-            self.start_action.setText("\u25B6 Start Screenshots Capture")
+            self.start_action.setText("\u25B6 Start Data Sync")
         else:
             log_message("FTP Screenshots Capture is not running")
 
