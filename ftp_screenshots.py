@@ -134,7 +134,7 @@ def list_files(ftp, path):
 
 def download_file(ftp, remote_file, local_file):
     with open(local_file, 'wb') as f:
-        ftp.retrbinary(f'RETR {remotescreenshot}', f.write)
+        ftp.retrbinary(f'RETR {remote_file}', f.write)
 
 def format_filename(file_name, dt_format):
     base_name, extension = os.path.splitext(file_name)
