@@ -51,7 +51,7 @@ PASS =
 OUTPUT_PATH = /path/to/save/files/
 
 [SETTINGS]
-CHECK_RATE = 20
+CHECK_RATE = 15
 DT_FORMAT = %Y-%m-%d_%H-%M-%S
 AUTO_START = False
 """
