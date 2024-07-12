@@ -33,7 +33,7 @@ output_path = /your/desired/pics/folder/
 
 [SETTINGS]
 auto_start = False
-check_rate = 20
+check_rate = 15
 dt_format = %Y-%m-%d_%H-%M-%S
 ```
 
