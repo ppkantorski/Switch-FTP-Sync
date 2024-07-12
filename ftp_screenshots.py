@@ -9,6 +9,22 @@ import threading
 import webbrowser
 from plyer import notification
 
+# Import win10toast for Windows notifications
+if sys.platform == 'win32':
+    from winotify import Notification, audio
+elif sys.platform == 'darwin':  # macOS specific imports
+    from Foundation import NSObject, NSUserNotification, NSUserNotificationCenter, NSUserNotificationDefaultSoundName
+
+    class NotificationDelegate(NSObject):
+        def userNotificationCenter_didActivateNotification_(self, center, notification):
+            userInfo = notification.userInfo()
+            log_message(f"Notification clicked. User info: {userInfo}")
+            if userInfo:
+                file_path = userInfo.get('file_path')
+                log_message(f"Attempting to open file path: {file_path}")
+                if file_path:
+                    os.system(f'open "{file_path}"')
+
 
 TITLE = "Switch FTP Screenshots"
 VERSION = "0.1.5"
@@ -65,18 +81,6 @@ stop_event = threading.Event()
 def log_message(message):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
 
-if sys.platform == 'darwin':  # macOS specific imports
-    from Foundation import NSObject, NSUserNotification, NSUserNotificationCenter, NSUserNotificationDefaultSoundName
-
-    class NotificationDelegate(NSObject):
-        def userNotificationCenter_didActivateNotification_(self, center, notification):
-            userInfo = notification.userInfo()
-            log_message(f"Notification clicked. User info: {userInfo}")
-            if userInfo:
-                file_path = userInfo.get('file_path')
-                log_message(f"Attempting to open file path: {file_path}")
-                if file_path:
-                    os.system(f'open "{file_path}"')
 
 # Explicitly keep a reference to the delegate to prevent garbage collection
 notification_delegate = None
@@ -97,6 +101,19 @@ def notify_new_file(file_name, local_file_path=""):
         log_message("Delegate set for notification center")
         center.deliverNotification_(notification)
         log_message(f"Notification sent for new file: {file_name} with path: {local_file_path}")
+    elif sys.platform == 'win32':  # Windows
+        try:
+            icon_path = os.path.join(script_dir, "icon.ico")
+            toast = Notification(app_id=TITLE,
+                                 title=TITLE,
+                                 msg=message,
+                                 icon=icon_path)
+            toast.set_audio(audio.Default, loop=False)
+            toast.add_actions(label="Open File", launch=local_file_path)
+            toast.show()
+            log_message(f"Notification sent for new file: {file_name}")
+        except Exception as e:
+            log_message(f"Failed to send notification: {e}")
     else:
         try:
             notification.notify(
