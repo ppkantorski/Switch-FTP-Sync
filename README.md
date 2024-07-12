@@ -11,7 +11,7 @@
 - Logs all actions with timestamps.
 - Clears terminal lines for a clean and readable output.
 
-## Requirements
+## Build Requirements
 
 - Python 3.x
 - FTP server accessible with the necessary credentials
