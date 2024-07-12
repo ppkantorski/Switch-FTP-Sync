@@ -6,6 +6,7 @@ import configparser
 from datetime import datetime
 from PyQt5 import QtWidgets, QtGui, QtCore
 import threading
+import webbrowser
 from plyer import notification
 
 
@@ -307,7 +308,7 @@ class AboutDialog(QtWidgets.QDialog):
         self.layout.addWidget(author_label)
 
         github_button = QtWidgets.QPushButton("View on GitHub")
-        github_button.clicked.connect(lambda: os.system("open https://github.com/ppkantorski/Switch-FTP-Screenshots"))
+        github_button.clicked.connect(lambda: webbrowser.open("https://github.com/ppkantorski/Switch-FTP-Screenshots"))
         self.layout.addWidget(github_button)
 
         ok_button = QtWidgets.QPushButton("OK")
