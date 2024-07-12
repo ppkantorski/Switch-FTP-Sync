@@ -11,9 +11,9 @@
 - Logs all actions with timestamps.
 - Clears terminal lines for a clean and readable output.
 
-## Build Requirements
+## Requirements
 
-- Python 3.x
+- Python 3.x (for building)
 - FTP server accessible with the necessary credentials
     - Requires `sys-ftpd` or a similar background FTP module on the Switch.
 
