@@ -10,6 +10,8 @@ a = Analysis(
     datas=[
         ('config.ini', '.'),
         ('icon.png', '.'),
+        ('icon.icns', '.'),
+        ('icon.ico', '.'),
         ('dark_taskbar.png', '.'),
         ('light_taskbar.png', '.')
     ],
