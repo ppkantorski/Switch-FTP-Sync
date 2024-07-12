@@ -35,7 +35,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,  # Set to False to hide the console window
-    icon='icon.icns',  # Path to your icon file
+    icon='icon.ico',  # Path to your icon file
 )
 
 coll = COLLECT(
