@@ -260,7 +260,7 @@ def sync_files(ftp, server_path, output_path):
                 full_path = os.path.join(server_path, file)
                 relative_path = os.path.relpath(full_path, server_path)
                 local_file_path = os.path.join(output_path, relative_path)
-                
+
                 try:
                     ftp.cwd(full_path)
                     #log_message(f"Entering directory: {full_path}")
@@ -430,7 +430,7 @@ class AboutDialog(QtWidgets.QDialog):
         self.layout.addWidget(author_label)
 
         github_button = QtWidgets.QPushButton("View on GitHub")
-        github_button.clicked.connect(lambda: webbrowser.open("https://github.com/ppkantorski/Switch-FTP-Screenshots"))
+        github_button.clicked.connect(lambda: webbrowser.open("https://github.com/ppkantorski/Switch-FTP-Sync"))
         self.layout.addWidget(github_button)
 
         ok_button = QtWidgets.QPushButton("OK")
