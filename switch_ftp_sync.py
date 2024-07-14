@@ -207,6 +207,14 @@ def download_file(ftp, remote_file, local_file):
     except ftplib.all_errors as e:
         log_message(f"Error downloading file {remote_file} to {local_file}: {e}")
 
+def get_file_timestamp(ftp, file_path):
+    try:
+        timestamp_str = ftp.sendcmd(f"MDTM {file_path}")[4:].strip()
+        return datetime.strptime(timestamp_str, "%Y%m%d%H%M%S")
+    except ftplib.all_errors as e:
+        log_message(f"Error getting timestamp for file {file_path}: {e}")
+        return None
+
 def format_filename(file_name, dt_format):
     base_name, extension = os.path.splitext(file_name)
     
@@ -241,10 +249,13 @@ def sync_screenshots(ftp):
             file_name = os.path.basename(file)
             formatted_name = format_filename(file_name, DT_FORMAT) + os.path.splitext(file_name)[1]
             local_file_path = os.path.join(SCREENSHOTS_PATH, formatted_name)
-            if not os.path.exists(local_file_path):
-                download_file(ftp, file, local_file_path)
-                log_message(f"Downloaded: {file}")
-                notify_new_file(formatted_name, local_file_path)
+            remote_timestamp = get_file_timestamp(ftp, file)
+            if remote_timestamp:
+                if not os.path.exists(local_file_path) or remote_timestamp > datetime.fromtimestamp(os.path.getmtime(local_file_path)):
+                    download_file(ftp, file, local_file_path)
+                    os.utime(local_file_path, (remote_timestamp.timestamp(), remote_timestamp.timestamp()))
+                    log_message(f"Downloaded: {file}")
+                    notify_new_file(formatted_name, local_file_path)
 
 def sync_files(ftp, server_path, output_path):
     log_message(f"Syncing {server_path} to {output_path}")
@@ -252,11 +263,14 @@ def sync_files(ftp, server_path, output_path):
     for file in current_files:
         relative_path = os.path.relpath(file, server_path)
         local_file_path = os.path.join(output_path, relative_path)
-        if not os.path.exists(local_file_path):
-            log_message(f"Downloading {file} to {local_file_path}")
-            download_file(ftp, file, local_file_path)
-            log_message(f"Downloaded: {file}")
-            notify_new_file(os.path.basename(file), local_file_path)
+        remote_timestamp = get_file_timestamp(ftp, file)
+        if remote_timestamp:
+            if not os.path.exists(local_file_path) or remote_timestamp > datetime.fromtimestamp(os.path.getmtime(local_file_path)):
+                log_message(f"Downloading {file} to {local_file_path}")
+                download_file(ftp, file, local_file_path)
+                os.utime(local_file_path, (remote_timestamp.timestamp(), remote_timestamp.timestamp()))
+                log_message(f"Downloaded: {file}")
+                notify_new_file(os.path.basename(file), local_file_path)
 
 def reload_config():
     global SERVER, PORT, USER, PASS, SCREENSHOTS_PATH, DT_FORMAT, SYNC_SCREENSHOTS, file_sync_paths, CHECK_RATE, AUTO_START
