@@ -231,16 +231,6 @@ def format_filename(file_name, dt_format):
     except ValueError:
         return base_name
 
-
-def clear_screen():
-    if os.name == 'nt':
-        os.system('cls')
-    else:
-        os.system('clear')
-
-def delete_line():
-    print("\033[F\033[K", end='')
-
 def sync_screenshots(ftp):
     screenshot_paths = ["/emuMMC/RAW1/Nintendo/Album/", "/Nintendo/Album/"]
     for path in screenshot_paths:
@@ -264,23 +254,23 @@ def sync_files(ftp, server_path, output_path):
         try:
             ftp.cwd(server_path)
             files = ftp.nlst()
-            log_message(f"Found {len(files)} items in {server_path}")
+            #log_message(f"Found {len(files)} items in {server_path}")
 
             for file in files:
                 full_path = os.path.join(server_path, file)
                 relative_path = os.path.relpath(full_path, server_path)
                 local_file_path = os.path.join(output_path, relative_path)
-
+                
                 try:
                     ftp.cwd(full_path)
-                    log_message(f"Entering directory: {full_path}")
+                    #log_message(f"Entering directory: {full_path}")
                     process_files(ftp, full_path, local_file_path)
                     ftp.cwd('..')
                 except ftplib.error_perm:
-                    log_message(f"Processing file: {full_path}")
+                    #log_message(f"Processing file: {full_path}")
                     remote_timestamp = get_file_timestamp(ftp, full_path)
                     if remote_timestamp:
-                        log_message(f"Remote timestamp for {full_path}: {remote_timestamp}")
+                        #log_message(f"Remote timestamp for {full_path}: {remote_timestamp}")
 
                         # Ensure the local directory exists
                         local_dir = os.path.dirname(local_file_path)
@@ -294,33 +284,14 @@ def sync_files(ftp, server_path, output_path):
                             os.utime(local_file_path, (remote_timestamp.timestamp(), remote_timestamp.timestamp()))
                             log_message(f"Downloaded: {full_path}")
                             notify_new_file(os.path.basename(full_path), local_file_path)
-                        else:
-                            log_message(f"File {full_path} is up to date.")
+                        #else:
+                        #    log_message(f"File {full_path} is up to date.")
                     else:
                         log_message(f"Failed to get timestamp for {full_path}")
         except ftplib.all_errors as e:
             log_message(f"Error listing files in {server_path}: {e}")
 
     process_files(ftp, server_path, output_path)
-
-def get_file_timestamp(ftp, file_path):
-    try:
-        response = ftp.sendcmd(f"MDTM {file_path}")
-        timestamp_str = response.split()[1]
-        timestamp = datetime.strptime(timestamp_str, "%Y%m%d%H%M%S")
-        return timestamp
-    except Exception as e:
-        log_message(f"Error getting timestamp for {file_path}: {e}")
-        return None
-
-def download_file(ftp, remote_file, local_file):
-    try:
-        local_dir = os.path.dirname(local_file)
-        os.makedirs(local_dir, exist_ok=True)
-        with open(local_file, 'wb') as f:
-            ftp.retrbinary(f'RETR {remote_file}', f.write)
-    except ftplib.all_errors as e:
-        log_message(f"Error downloading file {remote_file} to {local_file}: {e}")
 
 def reload_config():
     global SERVER, PORT, USER, PASS, SCREENSHOTS_PATH, DT_FORMAT, SYNC_SCREENSHOTS, file_sync_paths, CHECK_RATE, AUTO_START
@@ -527,51 +498,51 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
 
     def sync_data(self):
         global running
-        connection_success = False
-        initial_loop = True
-        
+    
         def sync_screenshots_thread():
-            ftp = connect_ftp()
-            if ftp:
-                try:
-                    sync_screenshots(ftp)
-                except ftplib.all_errors as e:
-                    log_message(f"Error during sync operation: {e}")
-                finally:
-                    ftp.quit()
-
-        def sync_files_thread():
-            ftp = connect_ftp()
-            if ftp:
-                try:
-                    for server_path, output_path in file_sync_paths:
+            while running and not stop_event.is_set():
+                start_time = time.time()
+                ftp = connect_ftp()
+                if ftp:
+                    try:
+                        sync_screenshots(ftp)
+                    except ftplib.all_errors as e:
+                        log_message(f"Error during sync operation: {e}")
+                    finally:
+                        ftp.quit()
+                elapsed_time = time.time() - start_time
+                sleep_time = max(0, CHECK_RATE - elapsed_time)
+                time.sleep(sleep_time)
+    
+        def sync_single_file_path(server_path, output_path):
+            while running and not stop_event.is_set():
+                start_time = time.time()
+                ftp = connect_ftp()
+                if ftp:
+                    try:
                         sync_files(ftp, server_path, output_path)
-                except ftplib.all_errors as e:
-                    log_message(f"Error during sync operation: {e}")
-                finally:
-                    ftp.quit()
-
+                    except ftplib.all_errors as e:
+                        log_message(f"Error during sync operation: {e}")
+                    finally:
+                        ftp.quit()
+                elapsed_time = time.time() - start_time
+                sleep_time = max(0, CHECK_RATE - elapsed_time)
+                time.sleep(sleep_time)
+    
+        # Create and start a thread for syncing screenshots
+        if SYNC_SCREENSHOTS:
+            threading.Thread(target=sync_screenshots_thread, daemon=True).start()
+    
+        # Create and start a thread for each file sync path
+        for server_path, output_path in file_sync_paths:
+            threading.Thread(target=sync_single_file_path, args=(server_path, output_path), daemon=True).start()
+    
+        # Keep the main thread alive while syncing is running
         while running and not stop_event.is_set():
-            start_time = time.time()
-            
-            # Create threads for syncing screenshots and files
-            threads = []
-            if SYNC_SCREENSHOTS:
-                threads.append(threading.Thread(target=sync_screenshots_thread))
-            threads.append(threading.Thread(target=sync_files_thread))
-
-            # Start all threads
-            for thread in threads:
-                thread.start()
-
-            # Wait for all threads to complete
-            for thread in threads:
-                thread.join()
-
-            elapsed_time = time.time() - start_time
-            sleep_time = max(0, CHECK_RATE - elapsed_time)
-            time.sleep(sleep_time)
+            time.sleep(1)
         log_message(f"Switch FTP Sync data sync service has been stopped.")
+    
+    
 
     def toggle_auto_start(self):
         current_auto_start = config.getboolean('Settings', 'auto_start')
@@ -611,6 +582,7 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         QtWidgets.qApp.quit()
 
 def main():
+
     app = QtWidgets.QApplication(sys.argv)
 
     def is_dark_mode():
