@@ -7,7 +7,6 @@ from datetime import datetime
 from PyQt5 import QtWidgets, QtGui, QtCore
 import threading
 import webbrowser
-from plyer import notification
 
 # Import win10toast for Windows notifications
 if sys.platform == 'win32':
@@ -24,10 +23,11 @@ elif sys.platform == 'darwin':  # macOS specific imports
                 log_message(f"Attempting to open file path: {file_path}")
                 if file_path:
                     os.system(f'open "{file_path}"')
+else:
+    from plyer import notification
 
-
-TITLE = "Switch FTP Screenshots"
-VERSION = "0.1.5"
+TITLE = "Switch FTP Sync"
+VERSION = "0.1.6"
 AUTHOR = "ppkantorski"
 
 # Determine the directory where the script is located
@@ -42,18 +42,40 @@ config_path = os.path.join(script_dir, 'config.ini')
 # Ensure the config.ini file exists, create a default one if not
 if not os.path.exists(config_path):
     default_config = """[FTP]
-SERVER = X.X.X.X
-PORT = 5000
-USER = root
-PASS = 
+server = X.X.X.X
+port = 5000
+user = root
+pass = 
 
-[LOCAL]
-OUTPUT_PATH = /path/to/save/files/
+[Screenshots]
+dt_format = %Y-%m-%d_%H-%M-%S
+output_path = 
+sync_screenshots = True
 
-[SETTINGS]
-CHECK_RATE = 15
-DT_FORMAT = %Y-%m-%d_%H-%M-%S
-AUTO_START = False
+[File Sync]
+server_path_1 = 
+output_path_1 =
+sync_files_1 = False
+
+server_path_2 = 
+output_path_2 =
+sync_files_2 = False
+
+server_path_3 =
+output_path_3 =
+sync_files_3 = False
+
+server_path_4 =
+output_path_4 =
+sync_files_4 = False
+
+server_path_5 =
+output_path_5 =
+sync_files_5 = False
+
+[Settings]
+check_rate = 15
+auto_start = False
 """
     with open(config_path, 'w') as config_file:
         config_file.write(default_config)
@@ -63,17 +85,28 @@ config = configparser.ConfigParser(interpolation=None)  # Disable interpolation
 config.read(config_path)
 
 # FTP server details
-SERVER = config.get('FTP', 'server')
+SERVER = config.get('FTP', 'server').strip('"')
 PORT = config.getint('FTP', 'port')
-USER = config.get('FTP', 'user')
-PASS = config.get('FTP', 'pass')
-PATH = "/emuMMC/RAW1/Nintendo/Album/"
+USER = config.get('FTP', 'user').strip('"')
+PASS = config.get('FTP', 'pass').strip('"')
 
-# Local directory to save files
-OUTPUT_PATH = config.get('LOCAL', 'output_path')
-CHECK_RATE = int(config.get('SETTINGS', 'check_rate'))
-DT_FORMAT = config.get('SETTINGS', 'dt_format')
-AUTO_START = config.getboolean('SETTINGS', 'auto_start')
+# Screenshots settings
+SCREENSHOTS_PATH = config.get('Screenshots', 'output_path').strip('"')
+DT_FORMAT = config.get('Screenshots', 'dt_format')
+SYNC_SCREENSHOTS = config.getboolean('Screenshots', 'sync_screenshots')
+
+# File Sync paths
+file_sync_paths = []
+for i in range(1, 6):
+    server_path = config.get('File Sync', f'server_path_{i}', fallback='').strip('"')
+    output_path = config.get('File Sync', f'output_path_{i}', fallback='').strip('"')
+    sync_files = config.getboolean('File Sync', f'sync_files_{i}', fallback=False)
+    if server_path and output_path and sync_files:
+        file_sync_paths.append((server_path, output_path))
+
+# Settings
+CHECK_RATE = int(config.get('Settings', 'check_rate'))
+AUTO_START = config.getboolean('Settings', 'auto_start')
 
 running = False
 stop_event = threading.Event()
@@ -81,20 +114,28 @@ stop_event = threading.Event()
 def log_message(message):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
 
-
 # Explicitly keep a reference to the delegate to prevent garbage collection
 notification_delegate = None
 
 def notify_new_file(file_name, local_file_path=""):
     global notification_delegate
-    message = f"New file {file_name} has been added."
+    is_screenshot = local_file_path.startswith(SCREENSHOTS_PATH)
+    message = ""
+    if (is_screenshot):
+        message = f"New image {file_name} has been added."
+    else:
+        message = f"New file {file_name} has been added."
+
     if sys.platform == 'darwin':  # macOS
         notification = NSUserNotification.alloc().init()
         notification.setTitle_(TITLE)
         notification.setInformativeText_(message)
         notification.setSoundName_(NSUserNotificationDefaultSoundName)
-        notification.setUserInfo_({'file_path': local_file_path})
-        
+        if is_screenshot:
+            notification.setUserInfo_({'file_path': local_file_path})
+        else:
+            notification.setUserInfo_({'file_path': os.path.dirname(local_file_path)})
+
         center = NSUserNotificationCenter.defaultUserNotificationCenter()
         notification_delegate = NotificationDelegate.alloc().init()
         center.setDelegate_(notification_delegate)
@@ -104,12 +145,13 @@ def notify_new_file(file_name, local_file_path=""):
     elif sys.platform == 'win32':  # Windows
         try:
             icon_path = os.path.join(script_dir, "icon.ico")
+            launch_path = local_file_path if is_screenshot else os.path.dirname(local_file_path)
             toast = Notification(app_id=TITLE,
                                  title=TITLE,
                                  msg=message,
                                  icon=icon_path)
             toast.set_audio(audio.Default, loop=False)
-            toast.add_actions(label="Open File", launch=local_file_path)
+            toast.add_actions(label="Open File", launch=launch_path)
             toast.show()
             log_message(f"Notification sent for new file: {file_name}")
         except Exception as e:
@@ -117,7 +159,7 @@ def notify_new_file(file_name, local_file_path=""):
     else:
         try:
             notification.notify(
-                title="FTP Screenshots",
+                title=TITLE,
                 message=message,
                 app_name=TITLE,
                 app_icon=os.path.join(script_dir, "icon.png"),  # path to your app icon
@@ -127,11 +169,17 @@ def notify_new_file(file_name, local_file_path=""):
         except Exception as e:
             log_message(f"Failed to send notification: {e}")
 
+
 def connect_ftp():
-    ftp = ftplib.FTP()
-    ftp.connect(SERVER, PORT, timeout=10)  # Set timeout for connection
-    ftp.login(USER, PASS)
-    return ftp
+    try:
+        ftp = ftplib.FTP()
+        ftp.connect(SERVER, PORT, timeout=10)  # Set timeout for connection
+        ftp.login(USER, PASS)
+        log_message(f"FTP Connection to {SERVER} successful.")
+        return ftp
+    except Exception as e:
+        log_message(f"Error connecting to FTP server: {e}")
+        return None
 
 def list_files(ftp, path):
     file_list = []
@@ -146,23 +194,35 @@ def list_files(ftp, path):
                 ftp.cwd('..')
             except ftplib.error_perm:
                 file_list.append(full_path)
-    except ftplib.error_perm:
-        pass
+    except ftplib.all_errors as e:
+        log_message(f"Error listing files in {path}: {e}")
     return file_list
 
 def download_file(ftp, remote_file, local_file):
-    with open(local_file, 'wb') as f:
-        ftp.retrbinary(f'RETR {remote_file}', f.write)
+    try:
+        local_dir = os.path.dirname(local_file)
+        os.makedirs(local_dir, exist_ok=True)
+        with open(local_file, 'wb') as f:
+            ftp.retrbinary(f'RETR {remote_file}', f.write)
+    except ftplib.all_errors as e:
+        log_message(f"Error downloading file {remote_file} to {local_file}: {e}")
 
 def format_filename(file_name, dt_format):
     base_name, extension = os.path.splitext(file_name)
+    
+    # Check if the file extension is .bmp and set the format accordingly
+    default_format = '%Y%m%d%H%M%S%f'
+    if extension.lower() == '.bmp':
+        default_format = "%Y-%m-%d_%H-%M-%S"
+        
     try:
         timestamp_str = base_name.split('-')[0]
-        timestamp_dt = datetime.strptime(timestamp_str, '%Y%m%d%H%M%S%f')
+        timestamp_dt = datetime.strptime(timestamp_str, default_format)
         formatted_str = timestamp_dt.strftime(dt_format)
         return formatted_str
     except ValueError:
         return base_name
+
 
 def clear_screen():
     if os.name == 'nt':
@@ -173,76 +233,66 @@ def clear_screen():
 def delete_line():
     print("\033[F\033[K", end='')
 
-def screenshots():
-    global running
-    connection_success = False
-    initial_loop = True
-    was_last_message = False
-    while running and not stop_event.is_set():
-        start_time = time.time()
-        try:
-            ftp = connect_ftp()
-            current_files = list_files(ftp, PATH)
-            if connection_success and was_last_message:
-                delete_line()
-            log_message(f"FTP Connection to {SERVER} successful.")
-            connection_success = True
-            was_last_message = True
-            for file in current_files:
-                file_name = os.path.basename(file)
-                formatted_name = file_name
-                if DT_FORMAT:
-                    formatted_name = format_filename(file_name, DT_FORMAT) + os.path.splitext(file_name)[1]
-                    local_file_path = os.path.join(OUTPUT_PATH, formatted_name)
-                else:
-                    local_file_path = os.path.join(OUTPUT_PATH, file_name)
-                if not os.path.exists(local_file_path):
-                    try:
-                        download_file(ftp, file, local_file_path)
-                        log_message(f"Downloaded: {file}")
-                        notify_new_file(formatted_name, local_file_path)
-                        was_last_message = False
-                    except Exception as e:
-                        log_message(f"Error downloading {file}: {e}")
-                        was_last_message = False
-            ftp.quit()
-        except ftplib.all_errors as e:
-            if not connection_success and not initial_loop:
-                delete_line()
-            log_message(f"Error connecting to FTP server: {e}")
-            connection_success = False
-        except Exception as e:
-            log_message(f"Unexpected error: {e}")
-            connection_success = False
-        
-        initial_loop = False
-        elapsed_time = time.time() - start_time
-        sleep_time = max(0, CHECK_RATE - elapsed_time)
-        time.sleep(sleep_time)
-        
-    log_message(f"FTP screenshots service has been stopped.")
+def sync_screenshots(ftp):
+    screenshot_paths = ["/emuMMC/RAW1/Nintendo/Album/", "/Nintendo/Album/"]
+    for path in screenshot_paths:
+        current_files = list_files(ftp, path)
+        for file in current_files:
+            file_name = os.path.basename(file)
+            formatted_name = format_filename(file_name, DT_FORMAT) + os.path.splitext(file_name)[1]
+            local_file_path = os.path.join(SCREENSHOTS_PATH, formatted_name)
+            if not os.path.exists(local_file_path):
+                download_file(ftp, file, local_file_path)
+                log_message(f"Downloaded: {file}")
+                notify_new_file(formatted_name, local_file_path)
+
+def sync_files(ftp):
+    for server_path, output_path in file_sync_paths:
+        log_message(f"Syncing {server_path} to {output_path}")
+        current_files = list_files(ftp, server_path)
+        for file in current_files:
+            relative_path = os.path.relpath(file, server_path)
+            local_file_path = os.path.join(output_path, relative_path)
+            if not os.path.exists(local_file_path):
+                log_message(f"Downloading {file} to {local_file_path}")
+                download_file(ftp, file, local_file_path)
+                log_message(f"Downloaded: {file}")
+                notify_new_file(os.path.basename(file), local_file_path)
 
 def reload_config():
-    global SERVER, PORT, USER, PASS, PATH, OUTPUT_PATH, CHECK_RATE, DT_FORMAT, AUTO_START
+    global SERVER, PORT, USER, PASS, SCREENSHOTS_PATH, DT_FORMAT, SYNC_SCREENSHOTS, file_sync_paths, CHECK_RATE, AUTO_START
     config.read(config_path)
-    SERVER = config.get('FTP', 'SERVER')
-    PORT = config.getint('FTP', 'PORT')
-    USER = config.get('FTP', 'USER')
-    PASS = config.get('FTP', 'PASS')
-    #PATH = config.get('FTP', 'PATH')
-    OUTPUT_PATH = config.get('LOCAL', 'OUTPUT_PATH')
-    CHECK_RATE = int(config.get('SETTINGS', 'CHECK_RATE'))
-    DT_FORMAT = config.get('SETTINGS', 'DT_FORMAT')
-    AUTO_START = config.get('SETTINGS', 'AUTO_START')
+    SERVER = config.get('FTP', 'server').strip('"')
+    PORT = config.getint('FTP', 'port')
+    USER = config.get('FTP', 'user').strip('"')
+    PASS = config.get('FTP', 'pass').strip('"')
+    
+    # Screenshots settings
+    SCREENSHOTS_PATH = config.get('Screenshots', 'output_path').strip('"')
+    DT_FORMAT = config.get('Screenshots', 'dt_format')
+    SYNC_SCREENSHOTS = config.getboolean('Screenshots', 'sync_screenshots')
+    
+    # Update sync paths
+    file_sync_paths = []
+    for i in range(1, 6):
+        server_path = config.get('File Sync', f'server_path_{i}', fallback='').strip('"')
+        output_path = config.get('File Sync', f'output_path_{i}', fallback='').strip('"')
+        sync_files = config.getboolean('File Sync', f'sync_files_{i}', fallback=False)
+        if server_path and output_path and sync_files:
+            file_sync_paths.append((server_path, output_path))
+
+    CHECK_RATE = int(config.get('Settings', 'check_rate'))
+    AUTO_START = config.getboolean('Settings', 'auto_start')
 
 class ConfigDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configure FTP Screenshots")
+        self.setWindowTitle("Configure Switch FTP Sync")
         self.layout = QtWidgets.QFormLayout(self)
-        self.setFixedWidth(450)
+        self.setFixedWidth(480)
 
         self.config_items = {}
+        self.browse_buttons = {}  # To keep track of browse buttons and their corresponding line edits
         for section in config.sections():
             if section != 'DEFAULT':
                 if section != 'FTP':
@@ -255,18 +305,29 @@ class ConfigDialog(QtWidgets.QDialog):
                 self.layout.addRow(QtWidgets.QFrame())
             for key, value in config.items(section):
                 item_label = key
-                line_edit = QtWidgets.QLineEdit(value)
+                if key.startswith('sync_files') or key == 'sync_screenshots' or key == "auto_start":
+                    continue  # Skip these keys for now
+                line_edit = QtWidgets.QLineEdit(value.strip('"'))
                 line_edit.setAlignment(QtCore.Qt.AlignRight)  # Align text to the right
                 self.config_items[f"{section}.{key}"] = line_edit
-                if key == 'auto_start':
-                    continue
-                elif section == 'LOCAL' and key == 'output_path':
+
+                if key.startswith('output_path') or key == 'output_path':
                     browse_button = QtWidgets.QPushButton('\uD83D\uDCC2')  # Folder icon
-                    browse_button.clicked.connect(self.select_output_directory)
+                    self.browse_buttons[browse_button] = line_edit  # Associate browse button with line edit
+                    browse_button.clicked.connect(self.handle_browse_button_clicked)
                     hbox = QtWidgets.QHBoxLayout()
                     line_edit.setFixedWidth(240)  # Adjust the width of the input box
                     hbox.addWidget(line_edit)
                     hbox.addWidget(browse_button)
+                    checkbox = QtWidgets.QCheckBox()
+                    if key == 'output_path':
+                        checkbox.setChecked(config.getboolean(section, 'sync_screenshots'))
+                        self.config_items[f"{section}.sync_screenshots"] = checkbox
+                    else:
+                        sync_key = key.replace('output_path', 'sync_files')
+                        checkbox.setChecked(config.getboolean(section, sync_key))
+                        self.config_items[f"{section}.{sync_key}"] = checkbox
+                    hbox.addWidget(checkbox)
                     self.layout.addRow(QtWidgets.QLabel(f"  {item_label} "), hbox)
                 else:
                     line_edit.setFixedWidth(300)  # Adjust the width of the input box
@@ -277,18 +338,27 @@ class ConfigDialog(QtWidgets.QDialog):
         self.button_box.rejected.connect(self.reject)
         self.layout.addRow(self.button_box)
 
-    def select_output_directory(self):
+    def handle_browse_button_clicked(self):
+        sender = self.sender()
+        if sender in self.browse_buttons:
+            line_edit = self.browse_buttons[sender]
+            self.select_output_directory(line_edit)
+
+    def select_output_directory(self, line_edit):
         dir_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Directory")
         if dir_path:
             if not dir_path.endswith('/'):
                 dir_path += '/'
-            self.config_items['LOCAL.output_path'].setText(dir_path)
+            line_edit.setText(dir_path)
 
     def update_config(self):
         try:
-            for item_label, line_edit in self.config_items.items():
+            for item_label, widget in self.config_items.items():
                 section, key = item_label.split('.')
-                config.set(section, key, line_edit.text())
+                if isinstance(widget, QtWidgets.QLineEdit):
+                    config.set(section, key, widget.text())
+                elif isinstance(widget, QtWidgets.QCheckBox):
+                    config.set(section, key, str(widget.isChecked()))
             with open(config_path, 'w') as configfile:
                 config.write(configfile)
             QtWidgets.QMessageBox.information(self, "Success", "Configuration updated successfully.")
@@ -297,10 +367,11 @@ class ConfigDialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.critical(self, "Error", f"Failed to update configuration: {e}")
         self.accept()  # Close the dialog
 
+
 class AboutDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("About Switch FTP Screenshots")
+        self.setWindowTitle("About Switch FTP Sync")
         self.layout = QtWidgets.QVBoxLayout(self)
         self.setFixedSize(400, 250)
 
@@ -335,7 +406,6 @@ class AboutDialog(QtWidgets.QDialog):
         self.layout.setAlignment(github_button, QtCore.Qt.AlignCenter)
         self.layout.setAlignment(ok_button, QtCore.Qt.AlignCenter)
 
-
 class SystemTrayApp(QtWidgets.QSystemTrayIcon):
     def __init__(self, icon, parent=None):
         super(SystemTrayApp, self).__init__(icon, parent)
@@ -348,7 +418,7 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         self.menu.addSeparator()
         self.config_action = self.menu.addAction("Configure...")
         self.menu.addSeparator()
-        self.about_action = self.menu.addAction("About Switch FTP Screenshots")
+        self.about_action = self.menu.addAction("About Switch FTP Sync")
         self.menu.addSeparator()
         self.restart_action = self.menu.addAction("Restart")  # Add Restart action
         self.exit_action = self.menu.addAction("Quit")
@@ -378,10 +448,10 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         if not running:
             running = True
             stop_event.clear()
-            threading.Thread(target=screenshots, daemon=True).start()
+            threading.Thread(target=self.sync_data, daemon=True).start()
             self.start_action.setText("\u25A0 Stop Data Sync")
         else:
-            log_message("FTP Screenshots Capture is already running")
+            log_message("Switch FTP Sync is already running.")
 
     def stop_capture(self):
         global running
@@ -390,20 +460,46 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
             stop_event.set()
             self.start_action.setText("\u25B6 Start Data Sync")
         else:
-            log_message("FTP Screenshots Capture is not running")
+            log_message("Switch FTP Sync is not running.")
+
+    def sync_data(self):
+        global running
+        connection_success = False
+        initial_loop = True
+        while running and not stop_event.is_set():
+            start_time = time.time()
+            ftp = connect_ftp()
+            if ftp:
+                try:
+                    if SYNC_SCREENSHOTS:
+                        sync_screenshots(ftp)
+                    sync_files(ftp)
+                    connection_success = True
+                except ftplib.all_errors as e:
+                    log_message(f"Error during sync operation: {e}")
+                    connection_success = False
+                finally:
+                    ftp.quit()
+            if initial_loop or not connection_success:
+                delete_line()
+            initial_loop = False
+            elapsed_time = time.time() - start_time
+            sleep_time = max(0, CHECK_RATE - elapsed_time)
+            time.sleep(sleep_time)
+        log_message(f"Switch FTP Sync data sync service has been stopped.")
 
     def toggle_auto_start(self):
-        current_auto_start = config.getboolean('SETTINGS', 'AUTO_START')
+        current_auto_start = config.getboolean('Settings', 'auto_start')
         new_auto_start = not current_auto_start
-        config.set('SETTINGS', 'AUTO_START', str(new_auto_start))
+        config.set('Settings', 'auto_start', str(new_auto_start))
         with open(config_path, 'w') as configfile:
             config.write(configfile)
         self.update_auto_start_action()
         reload_config()
 
     def update_auto_start_action(self):
-        auto_start = config.getboolean('SETTINGS', 'AUTO_START')
-        if auto_start:
+        auto_start = config.getboolean('Settings', 'auto_start')
+        if (auto_start):
             self.auto_start_action.setText("\u2713 Auto-Start")
         else:
             self.auto_start_action.setText("    Auto-Start")
@@ -464,5 +560,6 @@ def main():
     tray_icon.show()
 
     sys.exit(app.exec_())
+
 if __name__ == "__main__":
     main()
