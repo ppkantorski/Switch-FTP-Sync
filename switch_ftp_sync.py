@@ -169,7 +169,6 @@ def notify_new_file(file_name, local_file_path=""):
         except Exception as e:
             log_message(f"Failed to send notification: {e}")
 
-
 def connect_ftp():
     try:
         ftp = ftplib.FTP()
@@ -254,7 +253,6 @@ def sync_files(ftp, server_path, output_path):
         try:
             ftp.cwd(server_path)
             files = ftp.nlst()
-            #log_message(f"Found {len(files)} items in {server_path}")
 
             for file in files:
                 full_path = os.path.join(server_path, file)
@@ -263,20 +261,14 @@ def sync_files(ftp, server_path, output_path):
 
                 try:
                     ftp.cwd(full_path)
-                    #log_message(f"Entering directory: {full_path}")
                     process_files(ftp, full_path, local_file_path)
                     ftp.cwd('..')
                 except ftplib.error_perm:
-                    #log_message(f"Processing file: {full_path}")
                     remote_timestamp = get_file_timestamp(ftp, full_path)
                     if remote_timestamp:
-                        #log_message(f"Remote timestamp for {full_path}: {remote_timestamp}")
-
-                        # Ensure the local directory exists
                         local_dir = os.path.dirname(local_file_path)
                         if not os.path.exists(local_dir):
                             os.makedirs(local_dir, exist_ok=True)
-                            log_message(f"Created directory: {local_dir}")
 
                         if not os.path.exists(local_file_path) or remote_timestamp > datetime.fromtimestamp(os.path.getmtime(local_file_path)):
                             log_message(f"Downloading {full_path} to {local_file_path}")
@@ -284,8 +276,6 @@ def sync_files(ftp, server_path, output_path):
                             os.utime(local_file_path, (remote_timestamp.timestamp(), remote_timestamp.timestamp()))
                             log_message(f"Downloaded: {full_path}")
                             notify_new_file(os.path.basename(full_path), local_file_path)
-                        #else:
-                        #    log_message(f"File {full_path} is up to date.")
                     else:
                         log_message(f"Failed to get timestamp for {full_path}")
         except ftplib.all_errors as e:
@@ -304,14 +294,14 @@ def reload_config():
     # Screenshots settings
     SCREENSHOTS_PATH = config.get('Screenshots', 'output_path').strip('"')
     DT_FORMAT = config.get('Screenshots', 'dt_format')
-    SYNC_SCREENSHOTS = config.getboolean('Screenshots', 'sync_screenshots')
+    SYNC_SCREENSHOTS = config.get('Screenshots', 'sync_screenshots')
     
     # Update sync paths
     file_sync_paths = []
     for i in range(1, 6):
         server_path = config.get('File Sync', f'server_path_{i}', fallback='').strip('"')
         output_path = config.get('File Sync', f'output_path_{i}', fallback='').strip('"')
-        sync_files = config.getboolean('File Sync', f'sync_files_{i}', fallback=False)
+        sync_files = config.get('File Sync', f'sync_files_{i}', fallback=False)
         if server_path and output_path and sync_files:
             file_sync_paths.append((server_path, output_path))
 
@@ -498,51 +488,51 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
 
     def sync_data(self):
         global running
-    
+
         def sync_screenshots_thread():
             while running and not stop_event.is_set():
                 start_time = time.time()
-                ftp = connect_ftp()
-                if ftp:
-                    try:
+                try:
+                    ftp = connect_ftp()
+                    if ftp:
                         sync_screenshots(ftp)
-                    except ftplib.all_errors as e:
-                        log_message(f"Error during sync operation: {e}")
-                    finally:
+                except ftplib.all_errors as e:
+                    log_message(f"Error during sync operation: {e}")
+                finally:
+                    if ftp:
                         ftp.quit()
                 elapsed_time = time.time() - start_time
                 sleep_time = max(0, CHECK_RATE - elapsed_time)
                 time.sleep(sleep_time)
-    
+
         def sync_single_file_path(server_path, output_path):
             while running and not stop_event.is_set():
                 start_time = time.time()
-                ftp = connect_ftp()
-                if ftp:
-                    try:
+                try:
+                    ftp = connect_ftp()
+                    if ftp:
                         sync_files(ftp, server_path, output_path)
-                    except ftplib.all_errors as e:
-                        log_message(f"Error during sync operation: {e}")
-                    finally:
+                except ftplib.all_errors as e:
+                    log_message(f"Error during sync operation: {e}")
+                finally:
+                    if ftp:
                         ftp.quit()
                 elapsed_time = time.time() - start_time
                 sleep_time = max(0, CHECK_RATE - elapsed_time)
                 time.sleep(sleep_time)
-    
+
         # Create and start a thread for syncing screenshots
         if SYNC_SCREENSHOTS:
             threading.Thread(target=sync_screenshots_thread, daemon=True).start()
-    
+
         # Create and start a thread for each file sync path
         for server_path, output_path in file_sync_paths:
             threading.Thread(target=sync_single_file_path, args=(server_path, output_path), daemon=True).start()
-    
+
         # Keep the main thread alive while syncing is running
         while running and not stop_event.is_set():
             time.sleep(1)
         log_message(f"Switch FTP Sync data sync service has been stopped.")
-    
-    
 
     def toggle_auto_start(self):
         current_auto_start = config.getboolean('Settings', 'auto_start')
@@ -582,7 +572,6 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         QtWidgets.qApp.quit()
 
 def main():
-
     app = QtWidgets.QApplication(sys.argv)
 
     def is_dark_mode():
@@ -613,7 +602,7 @@ def main():
         tray_icon = SystemTrayApp(QtGui.QIcon(icon_path))
     else:
         tray_icon = SystemTrayApp(app.style().standardIcon(QtWidgets.QStyle.SP_ComputerIcon))
-    
+
     tray_icon.show()
 
     sys.exit(app.exec_())
