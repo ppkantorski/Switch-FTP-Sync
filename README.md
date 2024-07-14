@@ -15,7 +15,7 @@
 
 - Python 3.x (for building)
 - FTP server accessible with the necessary credentials
-    - Requires `sys-ftpd` or a similar background FTP module on the Switch.
+    - Requires [sys-ftpd](https://github.com/cathery/sys-ftpd) or a similar background FTP module on the Switch.
 
 ## Configuration
 
