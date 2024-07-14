@@ -121,7 +121,7 @@ def notify_new_file(file_name, local_file_path=""):
     global notification_delegate
     is_screenshot = local_file_path.startswith(SCREENSHOTS_PATH)
     message = ""
-    if (is_screenshot):
+    if is_screenshot:
         message = f"New image {file_name} has been added."
     else:
         message = f"New file {file_name} has been added."
@@ -246,18 +246,17 @@ def sync_screenshots(ftp):
                 log_message(f"Downloaded: {file}")
                 notify_new_file(formatted_name, local_file_path)
 
-def sync_files(ftp):
-    for server_path, output_path in file_sync_paths:
-        log_message(f"Syncing {server_path} to {output_path}")
-        current_files = list_files(ftp, server_path)
-        for file in current_files:
-            relative_path = os.path.relpath(file, server_path)
-            local_file_path = os.path.join(output_path, relative_path)
-            if not os.path.exists(local_file_path):
-                log_message(f"Downloading {file} to {local_file_path}")
-                download_file(ftp, file, local_file_path)
-                log_message(f"Downloaded: {file}")
-                notify_new_file(os.path.basename(file), local_file_path)
+def sync_files(ftp, server_path, output_path):
+    log_message(f"Syncing {server_path} to {output_path}")
+    current_files = list_files(ftp, server_path)
+    for file in current_files:
+        relative_path = os.path.relpath(file, server_path)
+        local_file_path = os.path.join(output_path, relative_path)
+        if not os.path.exists(local_file_path):
+            log_message(f"Downloading {file} to {local_file_path}")
+            download_file(ftp, file, local_file_path)
+            log_message(f"Downloaded: {file}")
+            notify_new_file(os.path.basename(file), local_file_path)
 
 def reload_config():
     global SERVER, PORT, USER, PASS, SCREENSHOTS_PATH, DT_FORMAT, SYNC_SCREENSHOTS, file_sync_paths, CHECK_RATE, AUTO_START
@@ -466,23 +465,45 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         global running
         connection_success = False
         initial_loop = True
-        while running and not stop_event.is_set():
-            start_time = time.time()
+        
+        def sync_screenshots_thread():
             ftp = connect_ftp()
             if ftp:
                 try:
-                    if SYNC_SCREENSHOTS:
-                        sync_screenshots(ftp)
-                    sync_files(ftp)
-                    connection_success = True
+                    sync_screenshots(ftp)
                 except ftplib.all_errors as e:
                     log_message(f"Error during sync operation: {e}")
-                    connection_success = False
                 finally:
                     ftp.quit()
-            if initial_loop or not connection_success:
-                delete_line()
-            initial_loop = False
+
+        def sync_files_thread():
+            ftp = connect_ftp()
+            if ftp:
+                try:
+                    for server_path, output_path in file_sync_paths:
+                        sync_files(ftp, server_path, output_path)
+                except ftplib.all_errors as e:
+                    log_message(f"Error during sync operation: {e}")
+                finally:
+                    ftp.quit()
+
+        while running and not stop_event.is_set():
+            start_time = time.time()
+            
+            # Create threads for syncing screenshots and files
+            threads = []
+            if SYNC_SCREENSHOTS:
+                threads.append(threading.Thread(target=sync_screenshots_thread))
+            threads.append(threading.Thread(target=sync_files_thread))
+
+            # Start all threads
+            for thread in threads:
+                thread.start()
+
+            # Wait for all threads to complete
+            for thread in threads:
+                thread.join()
+
             elapsed_time = time.time() - start_time
             sleep_time = max(0, CHECK_RATE - elapsed_time)
             time.sleep(sleep_time)
@@ -499,7 +520,7 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
 
     def update_auto_start_action(self):
         auto_start = config.getboolean('Settings', 'auto_start')
-        if (auto_start):
+        if auto_start:
             self.auto_start_action.setText("\u2713 Auto-Start")
         else:
             self.auto_start_action.setText("    Auto-Start")
