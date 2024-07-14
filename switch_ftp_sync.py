@@ -488,10 +488,11 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
 
     def sync_data(self):
         global running
-
+    
         def sync_screenshots_thread():
             while running and not stop_event.is_set():
                 start_time = time.time()
+                ftp = None
                 try:
                     ftp = connect_ftp()
                     if ftp:
@@ -500,14 +501,18 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
                     log_message(f"Error during sync operation: {e}")
                 finally:
                     if ftp:
-                        ftp.quit()
+                        try:
+                            ftp.quit()
+                        except ftplib.all_errors as e:
+                            log_message(f"Error quitting FTP: {e}")
                 elapsed_time = time.time() - start_time
                 sleep_time = max(0, CHECK_RATE - elapsed_time)
                 time.sleep(sleep_time)
-
+    
         def sync_single_file_path(server_path, output_path):
             while running and not stop_event.is_set():
                 start_time = time.time()
+                ftp = None
                 try:
                     ftp = connect_ftp()
                     if ftp:
@@ -516,23 +521,27 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
                     log_message(f"Error during sync operation: {e}")
                 finally:
                     if ftp:
-                        ftp.quit()
+                        try:
+                            ftp.quit()
+                        except ftplib.all_errors as e:
+                            log_message(f"Error quitting FTP: {e}")
                 elapsed_time = time.time() - start_time
                 sleep_time = max(0, CHECK_RATE - elapsed_time)
                 time.sleep(sleep_time)
-
+    
         # Create and start a thread for syncing screenshots
         if SYNC_SCREENSHOTS:
             threading.Thread(target=sync_screenshots_thread, daemon=True).start()
-
+    
         # Create and start a thread for each file sync path
         for server_path, output_path in file_sync_paths:
             threading.Thread(target=sync_single_file_path, args=(server_path, output_path), daemon=True).start()
-
+    
         # Keep the main thread alive while syncing is running
         while running and not stop_event.is_set():
             time.sleep(1)
         log_message(f"Switch FTP Sync data sync service has been stopped.")
+
 
     def toggle_auto_start(self):
         current_auto_start = config.getboolean('Settings', 'auto_start')
