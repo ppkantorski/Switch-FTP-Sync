@@ -1,8 +1,8 @@
-# Switch FTP Screenshots
+# Switch FTP Sync
 
 ## Overview
 
-**Switch FTP Screenshots** is an app that monitors an FTP server for new Nintendo Switch screenshots saved and downloads them to a local directory. The script is designed to work across Windows, macOS, and Linux.
+**Switch FTP Sync** is an app that monitors an FTP server for Nintendo Switch screenshots as well as specified directories and downloads them to a local directory. The script is designed to work across Windows, macOS, and Linux.
 
 ## Features
 
@@ -28,13 +28,36 @@ port = 5000
 user = root
 pass = 
 
-[LOCAL]
-output_path = /your/desired/pics/folder/
-
-[SETTINGS]
-auto_start = False
-check_rate = 15
+[Screenshots]
 dt_format = %Y-%m-%d_%H-%M-%S
+output_path = 
+sync_screenshots = False
+
+[File Sync]
+server_path_1 = 
+output_path_1 = 
+sync_files_1 = False
+
+server_path_2 = 
+output_path_2 =
+sync_files_2 = False
+
+server_path_3 =
+output_path_3 =
+sync_files_3 = False
+
+server_path_4 =
+output_path_4 =
+sync_files_4 = False
+
+server_path_5 =
+output_path_5 =
+sync_files_5 = False
+
+
+[Settings]
+check_rate = 15
+auto_start = False
 ```
 
 - `ftp_server`: IP address of the FTP server.
