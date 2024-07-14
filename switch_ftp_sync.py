@@ -208,11 +208,16 @@ def download_file(ftp, remote_file, local_file):
 
 def get_file_timestamp(ftp, file_path):
     try:
-        timestamp_str = ftp.sendcmd(f"MDTM {file_path}")[4:].strip()
-        return datetime.strptime(timestamp_str, "%Y%m%d%H%M%S")
+        response = ftp.sendcmd(f"MDTM {file_path}")[4:].strip()
+        if response.isdigit():
+            return datetime.strptime(response, "%Y%m%d%H%M%S")
+        else:
+            log_message(f"Unexpected MDTM response for file {file_path}: {response}")
+            return None
     except ftplib.all_errors as e:
         log_message(f"Error getting timestamp for file {file_path}: {e}")
         return None
+
 
 def format_filename(file_name, dt_format):
     base_name, extension = os.path.splitext(file_name)
