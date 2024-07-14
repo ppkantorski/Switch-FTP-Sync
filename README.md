@@ -1,4 +1,4 @@
-# Switch FTP Sync
+# Switch FTP Sync (macOS / Windows)
 
 ## Overview
 
