@@ -36,4 +36,4 @@ if current_platform == "Windows":
     os.environ["PATH"] += os.pathsep + os.path.join(os.path.expanduser("~"), "AppData", "Local", "Packages", "PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0", "LocalCache", "local-packages", "Python312", "Scripts")
 
 # Run PyInstaller with the .spec file
-os.system('pyinstaller ftp_screenshots.spec')
+os.system('pyinstaller switch_ftp_sync.spec')
