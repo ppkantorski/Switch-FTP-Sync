@@ -58,7 +58,7 @@ app = BUNDLE(
     bundle_identifier='com.ppkantorski.switch_ftp_sync',
     info_plist={
         'CFBundleName': 'switch_ftp_sync',
-        'CFBundleDisplayName': 'FTP Screenshots',
+        'CFBundleDisplayName': 'Switch FTP Sync',
         'CFBundleIdentifier': 'com.ppkantorski.switch_ftp_sync',
         'CFBundleVersion': '1.0',
         'CFBundleShortVersionString': '1.0',
