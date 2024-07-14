@@ -259,18 +259,68 @@ def sync_screenshots(ftp):
 
 def sync_files(ftp, server_path, output_path):
     log_message(f"Syncing {server_path} to {output_path}")
-    current_files = list_files(ftp, server_path)
-    for file in current_files:
-        relative_path = os.path.relpath(file, server_path)
-        local_file_path = os.path.join(output_path, relative_path)
-        remote_timestamp = get_file_timestamp(ftp, file)
-        if remote_timestamp:
-            if not os.path.exists(local_file_path) or remote_timestamp > datetime.fromtimestamp(os.path.getmtime(local_file_path)):
-                log_message(f"Downloading {file} to {local_file_path}")
-                download_file(ftp, file, local_file_path)
-                os.utime(local_file_path, (remote_timestamp.timestamp(), remote_timestamp.timestamp()))
-                log_message(f"Downloaded: {file}")
-                notify_new_file(os.path.basename(file), local_file_path)
+
+    def process_files(ftp, server_path, output_path):
+        try:
+            ftp.cwd(server_path)
+            files = ftp.nlst()
+            log_message(f"Found {len(files)} items in {server_path}")
+
+            for file in files:
+                full_path = os.path.join(server_path, file)
+                relative_path = os.path.relpath(full_path, server_path)
+                local_file_path = os.path.join(output_path, relative_path)
+
+                try:
+                    ftp.cwd(full_path)
+                    log_message(f"Entering directory: {full_path}")
+                    process_files(ftp, full_path, local_file_path)
+                    ftp.cwd('..')
+                except ftplib.error_perm:
+                    log_message(f"Processing file: {full_path}")
+                    remote_timestamp = get_file_timestamp(ftp, full_path)
+                    if remote_timestamp:
+                        log_message(f"Remote timestamp for {full_path}: {remote_timestamp}")
+
+                        # Ensure the local directory exists
+                        local_dir = os.path.dirname(local_file_path)
+                        if not os.path.exists(local_dir):
+                            os.makedirs(local_dir, exist_ok=True)
+                            log_message(f"Created directory: {local_dir}")
+
+                        if not os.path.exists(local_file_path) or remote_timestamp > datetime.fromtimestamp(os.path.getmtime(local_file_path)):
+                            log_message(f"Downloading {full_path} to {local_file_path}")
+                            download_file(ftp, full_path, local_file_path)
+                            os.utime(local_file_path, (remote_timestamp.timestamp(), remote_timestamp.timestamp()))
+                            log_message(f"Downloaded: {full_path}")
+                            notify_new_file(os.path.basename(full_path), local_file_path)
+                        else:
+                            log_message(f"File {full_path} is up to date.")
+                    else:
+                        log_message(f"Failed to get timestamp for {full_path}")
+        except ftplib.all_errors as e:
+            log_message(f"Error listing files in {server_path}: {e}")
+
+    process_files(ftp, server_path, output_path)
+
+def get_file_timestamp(ftp, file_path):
+    try:
+        response = ftp.sendcmd(f"MDTM {file_path}")
+        timestamp_str = response.split()[1]
+        timestamp = datetime.strptime(timestamp_str, "%Y%m%d%H%M%S")
+        return timestamp
+    except Exception as e:
+        log_message(f"Error getting timestamp for {file_path}: {e}")
+        return None
+
+def download_file(ftp, remote_file, local_file):
+    try:
+        local_dir = os.path.dirname(local_file)
+        os.makedirs(local_dir, exist_ok=True)
+        with open(local_file, 'wb') as f:
+            ftp.retrbinary(f'RETR {remote_file}', f.write)
+    except ftplib.all_errors as e:
+        log_message(f"Error downloading file {remote_file} to {local_file}: {e}")
 
 def reload_config():
     global SERVER, PORT, USER, PASS, SCREENSHOTS_PATH, DT_FORMAT, SYNC_SCREENSHOTS, file_sync_paths, CHECK_RATE, AUTO_START
