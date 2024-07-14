@@ -16,7 +16,7 @@
 - Computer runing macOS or Windows 10/11.
 - Python 3.x (for building)
 - FTP server accessible with the necessary credentials
-    - Requires [sys-ftpd](https://github.com/cathery/sys-ftpd) or a similar background FTP module on the Switch.
+    - Requires [sys-ftpd](https://github.com/cathery/sys-ftpd) or a similar background FTP module running on the Switch.
 
 ## Configuration
 
