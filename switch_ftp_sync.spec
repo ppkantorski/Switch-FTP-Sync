@@ -1,10 +1,10 @@
-# ftp_screenshots.spec
+# switch_ftp_sync.spec
 # -*- mode: python ; coding: utf-8 -*-
 
 block_cipher = None
 
 a = Analysis(
-    ['ftp_screenshots.py'],
+    ['switch_ftp_sync.py'],
     pathex=['.'],
     binaries=[],
     datas=[
@@ -31,7 +31,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='ftp_screenshots',
+    name='switch_ftp_sync',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -48,18 +48,18 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='ftp_screenshots',
+    name='switch_ftp_sync',
 )
 
 app = BUNDLE(
     coll,
-    name='FTP Screenshots.app',
+    name='Switch FTP Sync.app',
     icon='icon.icns',  # Path to your icon file
-    bundle_identifier='com.ppkantorski.ftp_screenshots',
+    bundle_identifier='com.ppkantorski.switch_ftp_sync',
     info_plist={
-        'CFBundleName': 'ftp_screenshots',
+        'CFBundleName': 'switch_ftp_sync',
         'CFBundleDisplayName': 'FTP Screenshots',
-        'CFBundleIdentifier': 'com.ppkantorski.ftp_screenshots',
+        'CFBundleIdentifier': 'com.ppkantorski.switch_ftp_sync',
         'CFBundleVersion': '1.0',
         'CFBundleShortVersionString': '1.0',
         'LSUIElement': True,
