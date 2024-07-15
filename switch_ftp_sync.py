@@ -40,7 +40,8 @@ if getattr(sys, 'frozen', False):
 else:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-
+# Use the standard temporary directory for the platform
+temp_download_dir = os.path.join(tempfile.gettempdir(), "switch_ftp_sync")
 
 
 # Path to the config.ini file
@@ -222,11 +223,12 @@ def list_files(ftp, path):
 
 
 def download_file(ftp, remote_file, local_file):
-    # Use the standard temporary directory for the platform
-    temp_download_dir = tempfile.gettempdir()
+    
+    # Ensure the switch_ftp_sync subdirectory exists
+    os.makedirs(temp_download_dir, exist_ok=True)
 
     try:
-        # Generate a unique temporary file path
+        # Generate a unique temporary file path within the switch_ftp_sync subdirectory
         unique_filename = f"{uuid.uuid4()}.tmp"
         temp_file_path = os.path.join(temp_download_dir, unique_filename)
         
@@ -240,7 +242,7 @@ def download_file(ftp, remote_file, local_file):
 
         # Move the file from the temporary path to the final local path
         shutil.move(temp_file_path, local_file)
-        #log_message(f"Downloaded {remote_file} to {local_file} via temporary path {temp_file_path}")
+        # log_message(f"Downloaded {remote_file} to {local_file} via temporary path {temp_file_path}")
     except ftplib.all_errors as e:
         log_message(f"Error downloading file {remote_file} to {local_file}: {e}")
     finally:
@@ -256,9 +258,11 @@ def get_file_timestamp(ftp, file_path):
         else:
             log_message(f"Unexpected MDTM response for file {file_path}: {response}")
             return None
-    except ftplib.all_errors as e:
-        log_message(f"Error getting timestamp for file {file_path}: {e}")
+    except Exception as e:
         return None
+    #except ftplib.all_errors as e:
+    #    log_message(f"Error getting timestamp for file {file_path}: {e}")
+    #    return None
 
 
 def format_filename(file_name, dt_format):
@@ -322,7 +326,7 @@ def sync_files(ftp, server_path, output_path):
                         local_dir = os.path.dirname(local_file_path)
                         if not os.path.exists(local_dir):
                             os.makedirs(local_dir, exist_ok=True)
-                        
+
                         local_timestamp = remote_timestamp
                         if (os.path.exists(local_file_path)):
                             local_timestamp = datetime.fromtimestamp(os.path.getmtime(local_file_path))
@@ -637,6 +641,10 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         if running:
             running = False
             stop_event.set()
+        
+        if os.path.exists(temp_download_dir):
+            shutil.rmtree(temp_download_dir)
+        
         QtWidgets.qApp.quit()
 
 def main():
