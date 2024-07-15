@@ -27,7 +27,7 @@ else:
     from plyer import notification
 
 TITLE = "Switch FTP Sync"
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 AUTHOR = "ppkantorski"
 
 # Determine the directory where the script is located
@@ -120,9 +120,14 @@ notification_delegate = None
 def notify_new_file(file_name, local_file_path=""):
     global notification_delegate
     is_screenshot = local_file_path.startswith(SCREENSHOTS_PATH)
+    file_extension = os.path.splitext(file_name)[1].lower()
+
     message = ""
     if is_screenshot:
-        message = f"New image {file_name} has been added."
+        if file_extension == ".mp4":
+            message = f"New video {file_name} has been added."
+        else:
+            message = f"New image {file_name} has been added."
     else:
         message = f"New file {file_name} has been added."
 
