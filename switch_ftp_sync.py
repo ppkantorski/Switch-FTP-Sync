@@ -10,7 +10,7 @@ import webbrowser
 import shutil
 import tempfile
 import uuid
-
+import requests
 
 # Import win10toast for Windows notifications
 if sys.platform == 'win32':
@@ -30,9 +30,11 @@ elif sys.platform == 'darwin':  # macOS specific imports
 else:
     from plyer import notification
 
+
 TITLE = "Switch FTP Sync"
 VERSION = "0.1.7"
 AUTHOR = "ppkantorski"
+
 
 # Determine the directory where the script is located
 if getattr(sys, 'frozen', False):
@@ -42,6 +44,8 @@ else:
 
 # Use the standard temporary directory for the platform
 temp_download_dir = os.path.join(tempfile.gettempdir(), "switch_ftp_sync")
+if os.path.exists(temp_download_dir):
+    shutil.rmtree(temp_download_dir)
 
 
 # Path to the config.ini file
@@ -282,8 +286,10 @@ def format_filename(file_name, dt_format):
         return base_name
 
 def sync_screenshots(ftp):
+
     screenshot_paths = ["/emuMMC/RAW1/Nintendo/Album/", "/Nintendo/Album/"]
     for path in screenshot_paths:
+        log_message(f"Syncing {path} to {SCREENSHOTS_PATH}")
         current_files = list_files(ftp, path)
         for file in current_files:
             file_name = os.path.basename(file)
@@ -455,12 +461,14 @@ class ConfigDialog(QtWidgets.QDialog):
         self.accept()  # Close the dialog
 
 
+
+
 class AboutDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("About Switch FTP Sync")
         self.layout = QtWidgets.QVBoxLayout(self)
-        self.setFixedSize(400, 250)
+        self.setFixedSize(360, 250)
 
         icon_path = os.path.join(script_dir, "icon.png")
         if os.path.exists(icon_path):
@@ -478,20 +486,63 @@ class AboutDialog(QtWidgets.QDialog):
         title_label.setFont(font)
         self.layout.addWidget(title_label)
 
+        description_label = QtWidgets.QLabel("Nintendo Switch data-syncing utility utilizing FTP")
+        description_label.setAlignment(QtCore.Qt.AlignCenter)
+        self.layout.addWidget(description_label)
+
         author_label = QtWidgets.QLabel(f"Created by {AUTHOR}")
         author_label.setAlignment(QtCore.Qt.AlignCenter)
         self.layout.addWidget(author_label)
 
         github_button = QtWidgets.QPushButton("View on GitHub")
+        github_button.setFixedWidth(120)  # Set fixed width for the button
         github_button.clicked.connect(lambda: webbrowser.open("https://github.com/ppkantorski/Switch-FTP-Sync"))
-        self.layout.addWidget(github_button)
+
+        check_updates_button = QtWidgets.QPushButton("Check for Updates")
+        check_updates_button.setFixedWidth(140)  # Set fixed width for the button
+        check_updates_button.clicked.connect(self.check_for_updates)
 
         ok_button = QtWidgets.QPushButton("OK")
+        ok_button.setFixedWidth(60)  # Set fixed width for the button
         ok_button.clicked.connect(self.accept)
-        self.layout.addWidget(ok_button)
+
+        # Create a horizontal layout for the buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addWidget(github_button)
+        button_layout.addWidget(check_updates_button)
+        button_layout.addWidget(ok_button)
+
+        # Add the horizontal layout to the main layout
+        self.layout.addLayout(button_layout)
 
         self.layout.setAlignment(github_button, QtCore.Qt.AlignCenter)
+        self.layout.setAlignment(check_updates_button, QtCore.Qt.AlignCenter)
         self.layout.setAlignment(ok_button, QtCore.Qt.AlignCenter)
+
+    def check_for_updates(self):
+        try:
+            response = requests.get("https://api.github.com/repos/ppkantorski/Switch-FTP-Sync/releases/latest")
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            latest_release = response.json()
+            latest_version = latest_release["tag_name"].replace("v", "")
+    
+            # Split versions into parts and compare each part
+            latest_version_parts = [int(part) for part in latest_version.split('.')]
+            current_version_parts = [int(part) for part in VERSION.split('.')]
+    
+            if latest_version_parts > current_version_parts:
+                QtWidgets.QMessageBox.information(self, "Update Available", 
+                                                  f"\nA new version v{latest_version} is available.\nYou are currently using v{VERSION}.")
+            else:
+                QtWidgets.QMessageBox.information(self, "Up to Date", 
+                                                  "\nYou are using the latest version.")
+        except requests.RequestException as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"\nFailed to check for updates: {e}")
+        except ValueError as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"\nFailed to parse version information: {e}")
+    
+
+
 
 class SystemTrayApp(QtWidgets.QSystemTrayIcon):
     def __init__(self, icon, parent=None):
@@ -641,7 +692,7 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         if running:
             running = False
             stop_event.set()
-        
+
         if os.path.exists(temp_download_dir):
             shutil.rmtree(temp_download_dir)
         
