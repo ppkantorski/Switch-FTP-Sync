@@ -7,6 +7,10 @@ from datetime import datetime
 from PyQt5 import QtWidgets, QtGui, QtCore
 import threading
 import webbrowser
+import shutil
+import tempfile
+import uuid
+
 
 # Import win10toast for Windows notifications
 if sys.platform == 'win32':
@@ -35,6 +39,9 @@ if getattr(sys, 'frozen', False):
     script_dir = sys._MEIPASS
 else:
     script_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+
 
 # Path to the config.ini file
 config_path = os.path.join(script_dir, 'config.ini')
@@ -117,19 +124,29 @@ def log_message(message):
 # Explicitly keep a reference to the delegate to prevent garbage collection
 notification_delegate = None
 
-def notify_new_file(file_name, local_file_path=""):
+def notify_file(file_name, local_file_path="", type="new"):
     global notification_delegate
     is_screenshot = local_file_path.startswith(SCREENSHOTS_PATH)
     file_extension = os.path.splitext(file_name)[1].lower()
 
     message = ""
-    if is_screenshot:
-        if file_extension == ".mp4":
-            message = f"New video {file_name} has been added."
+
+    if type == "new":
+        if is_screenshot:
+            if file_extension == ".mp4":
+                message = f"New video {file_name} has been added."
+            else:
+                message = f"New image {file_name} has been added."
         else:
-            message = f"New image {file_name} has been added."
+            message = f"New file {file_name} has been added."
     else:
-        message = f"New file {file_name} has been added."
+        if is_screenshot:
+            if file_extension == ".mp4":
+                message = f"Video {file_name} has been updated."
+            else:
+                message = f"Image {file_name} has been updated."
+        else:
+            message = f"File {file_name} has been updated."
 
     if sys.platform == 'darwin':  # macOS
         notification = NSUserNotification.alloc().init()
@@ -202,14 +219,34 @@ def list_files(ftp, path):
         log_message(f"Error listing files in {path}: {e}")
     return file_list
 
+
+
 def download_file(ftp, remote_file, local_file):
+    # Use the standard temporary directory for the platform
+    temp_download_dir = tempfile.gettempdir()
+
     try:
+        # Generate a unique temporary file path
+        unique_filename = f"{uuid.uuid4()}.tmp"
+        temp_file_path = os.path.join(temp_download_dir, unique_filename)
+        
+        # Ensure the local directory exists
         local_dir = os.path.dirname(local_file)
         os.makedirs(local_dir, exist_ok=True)
-        with open(local_file, 'wb') as f:
+
+        # Download the file to the temporary path
+        with open(temp_file_path, 'wb') as f:
             ftp.retrbinary(f'RETR {remote_file}', f.write)
+
+        # Move the file from the temporary path to the final local path
+        shutil.move(temp_file_path, local_file)
+        #log_message(f"Downloaded {remote_file} to {local_file} via temporary path {temp_file_path}")
     except ftplib.all_errors as e:
         log_message(f"Error downloading file {remote_file} to {local_file}: {e}")
+    finally:
+        # No need to explicitly remove the temporary directory since we are using a shared temp directory
+        pass
+
 
 def get_file_timestamp(ftp, file_path):
     try:
@@ -250,11 +287,17 @@ def sync_screenshots(ftp):
             local_file_path = os.path.join(SCREENSHOTS_PATH, formatted_name)
             remote_timestamp = get_file_timestamp(ftp, file)
             if remote_timestamp:
-                if not os.path.exists(local_file_path) or remote_timestamp > datetime.fromtimestamp(os.path.getmtime(local_file_path)):
+                local_timestamp = remote_timestamp
+                if (os.path.exists(local_file_path)):
+                    local_timestamp = datetime.fromtimestamp(os.path.getmtime(local_file_path))
+                if not os.path.exists(local_file_path) or remote_timestamp > local_timestamp:
                     download_file(ftp, file, local_file_path)
                     os.utime(local_file_path, (remote_timestamp.timestamp(), remote_timestamp.timestamp()))
                     log_message(f"Downloaded: {file}")
-                    notify_new_file(formatted_name, local_file_path)
+                    if remote_timestamp > local_timestamp:
+                        notify_file(formatted_name, local_file_path, "update")
+                    else:
+                        notify_file(formatted_name, local_file_path, "new")
 
 def sync_files(ftp, server_path, output_path):
     log_message(f"Syncing {server_path} to {output_path}")
@@ -279,13 +322,19 @@ def sync_files(ftp, server_path, output_path):
                         local_dir = os.path.dirname(local_file_path)
                         if not os.path.exists(local_dir):
                             os.makedirs(local_dir, exist_ok=True)
-
-                        if not os.path.exists(local_file_path) or remote_timestamp > datetime.fromtimestamp(os.path.getmtime(local_file_path)):
+                        
+                        local_timestamp = remote_timestamp
+                        if (os.path.exists(local_file_path)):
+                            local_timestamp = datetime.fromtimestamp(os.path.getmtime(local_file_path))
+                        if not os.path.exists(local_file_path) or remote_timestamp > local_timestamp:
                             log_message(f"Downloading {full_path} to {local_file_path}")
                             download_file(ftp, full_path, local_file_path)
                             os.utime(local_file_path, (remote_timestamp.timestamp(), remote_timestamp.timestamp()))
                             log_message(f"Downloaded: {full_path}")
-                            notify_new_file(os.path.basename(full_path), local_file_path)
+                            if remote_timestamp > local_timestamp:
+                                notify_file(os.path.basename(full_path), local_file_path, "update")
+                            else:
+                                notify_file(os.path.basename(full_path), local_file_path, "new")
                     else:
                         log_message(f"Failed to get timestamp for {full_path}")
         except ftplib.all_errors as e:
