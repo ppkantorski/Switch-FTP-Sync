@@ -2,3 +2,4 @@ pyinstaller
 pyobjc
 plyer
 pyqt5
+requests
