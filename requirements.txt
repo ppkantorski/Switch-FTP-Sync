@@ -2,3 +2,4 @@ pyinstaller
 plyer
 pyqt5
 winotify
+requests
