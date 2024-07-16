@@ -486,7 +486,7 @@ class AboutDialog(QtWidgets.QDialog):
         title_label.setFont(font)
         self.layout.addWidget(title_label)
 
-        description_label = QtWidgets.QLabel("Nintendo Switch data-syncing utility utilizing FTP")
+        description_label = QtWidgets.QLabel("Nintendo Switch FTP data-syncing utility.")
         description_label.setAlignment(QtCore.Qt.AlignCenter)
         self.layout.addWidget(description_label)
 
@@ -554,12 +554,12 @@ class SystemTrayApp(QtWidgets.QSystemTrayIcon):
         self.start_action = self.menu.addAction("\u25B6 Start Data Sync")
         self.auto_start_action = self.menu.addAction("    Auto-Start")
         self.menu.addSeparator()
-        self.config_action = self.menu.addAction("Configure...")
+        self.config_action = self.menu.addAction("    Configure...")
         self.menu.addSeparator()
-        self.about_action = self.menu.addAction("About Switch FTP Sync")
+        self.about_action = self.menu.addAction("    About Switch FTP Sync    ")
         self.menu.addSeparator()
-        self.restart_action = self.menu.addAction("Restart")  # Add Restart action
-        self.exit_action = self.menu.addAction("Quit")
+        self.restart_action = self.menu.addAction("    Restart")  # Add Restart action
+        self.exit_action = self.menu.addAction("    Quit")
 
         self.start_action.triggered.connect(self.toggle_capture)
         self.auto_start_action.triggered.connect(self.toggle_auto_start)
