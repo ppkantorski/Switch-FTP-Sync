@@ -140,16 +140,20 @@ def notify_file(file_name, local_file_path="", type="new"):
         if is_screenshot:
             if file_extension == ".mp4":
                 message = f"New video {file_name} has been added."
-            else:
+            elif file_extension == ".jpg" or file_extension == ".bmp" or file_extension == ".png":
                 message = f"New image {file_name} has been added."
+            else:
+                message = f"New file {file_name} has been added."
         else:
             message = f"New file {file_name} has been added."
     else:
         if is_screenshot:
             if file_extension == ".mp4":
                 message = f"Video {file_name} has been updated."
-            else:
+            elif file_extension == ".jpg" or file_extension == ".bmp" or file_extension == ".png":
                 message = f"Image {file_name} has been updated."
+            else:
+                message = f"File {file_name} has been updated."
         else:
             message = f"File {file_name} has been updated."
 
@@ -201,6 +205,8 @@ def connect_ftp():
         ftp = ftplib.FTP()
         ftp.connect(SERVER, PORT, timeout=10)  # Set timeout for connection
         ftp.login(USER, PASS)
+        # Switch to passive mode
+        ftp.set_pasv(True)
         log_message(f"FTP Connection to {SERVER} successful.")
         return ftp
     except Exception as e:
@@ -286,7 +292,7 @@ def format_filename(file_name, dt_format):
         return base_name
 
 def sync_screenshots(ftp):
-
+    time_in = time.time()
     screenshot_paths = ["/emuMMC/RAW1/Nintendo/Album/", "/Nintendo/Album/"]
     for path in screenshot_paths:
         log_message(f"Syncing {path} to {SCREENSHOTS_PATH}")
@@ -308,8 +314,11 @@ def sync_screenshots(ftp):
                         notify_file(formatted_name, local_file_path, "update")
                     else:
                         notify_file(formatted_name, local_file_path, "new")
+    time_out = time.time()-time_in
+    log_message(f"Screenshots sync loop time: {time_out}")
 
 def sync_files(ftp, server_path, output_path):
+    time_in = time.time()
     log_message(f"Syncing {server_path} to {output_path}")
 
     def process_files(ftp, server_path, output_path):
@@ -351,6 +360,9 @@ def sync_files(ftp, server_path, output_path):
             log_message(f"Error listing files in {server_path}: {e}")
 
     process_files(ftp, server_path, output_path)
+
+    time_out = time.time()-time_in
+    log_message(f"{server_path} sync loop time: {time_out}")
 
 def reload_config():
     global SERVER, PORT, USER, PASS, SCREENSHOTS_PATH, DT_FORMAT, SYNC_SCREENSHOTS, file_sync_paths, CHECK_RATE, AUTO_START
